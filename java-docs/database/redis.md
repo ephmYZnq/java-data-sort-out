@@ -23,7 +23,31 @@
 > - List (列表)
 > - Set (集合)
 > - ZSet (Sorted Set: 有序集合)
->> ##### 2.1 String (字符串)
->> -     一个 key 对应一个 value
->> -     二进制安全. 可以包含任何数据, 包括图片或者序列化对象
->> -     value 最多可以是 512M
+>> ##### 2.1 String
+>>     1. 一个 key 对应一个 value
+>>     2. 二进制安全. 可以包含任何数据, 包括图片或者序列化对象
+>>     3. value 最多可以是 512M
+>>> ##### 2.2 Hash
+>>     1. string 类型的 field 和 value 的映射表
+>>> ##### 2.3 List
+>>     1. 底层是一个链表
+>>     2. 按照插入顺序排序, 可以在头部或者尾部插入数据
+>>> ##### 2.4 Set
+>>     1. string 类型的无序集合, 是通过 HashTable 实现的
+>>> ##### 2.5 ZSet (Sorted Set)
+>>     1. string 类型的集合
+>>     2. 与 Set 不同的是: 每个元素都会关联一个 double 类型的分数
+>>     3. Redis 通过分数来为集合中的成员进行从小到大排序
+>>     3. zset 成员唯一, 但是分数 (score) 可以重复
+
+```html
+    key *   
+    exists key # 判断某个 key 是否存在   
+    move key db # 将 key 移动到另一个库        
+    expire key # 给 key 设置过期时间       
+    ttl key # 查看还有多长时间 key 过期, -1 表示永不过期, -2 表示已经过期    
+    type key # 查看 key 是什么类型
+    get k1 # 有对应的键值
+    set k1 v1 # 有对应的键值, 覆盖 value
+    del key # 删除 key
+```
