@@ -159,21 +159,68 @@
 >>> 代码实现
 ```java
  public Boolean lock(String key,String value,Long timeOut){
-     String var1 = jedis.set(key,value,"NX","EX",timeOut); //加锁，设置超时时间 原子性操作
-     if(LOCK_SUCCESS.equals(var1)){
+    //加锁，设置超时时间 原子性操作
+    String var1 = jedis.set(key,value,"NX","EX",timeOut); 
+    if(LOCK_SUCCESS.equals(var1)){
+        return true;
+    }
+    return false;
+ }
+```
+>>>     当前没有锁（key不存在），那么就进行加锁操作，并对锁设置个有效期，同时value表示加锁的客户端。
+>>>     已有锁存在，不做任何操作。
+>>> ##### 4.5.3 解锁
+>>> 代码实现
+```java
+ public Boolean redisUnLock(String key, String value) {
+     String luaScript = "if redis.call('get',KEYS[1]) == ARGV[1] then return redis.call('del',KEYS[1]) else  return 0 end";
+     Object var2 = jedis.eval(luaScript, Collections.singletonList(key), Collections.singletonList(value));
+     if (UNLOCK_SUCCESS == var2) {
          return true;
      }
      return false;
  }
 ```
-
-
-
-
-
-
-
-
+>>>     首先获取锁对应的value值，检查是否与输入的value相等，如果相等则删除锁（解锁）
+>> #### 4.6 Redisson 分布式锁原理
+>>> ##### 4.6.1 简介
+>>>     Redisson是一个在Redis的基础上实现的Java驻内存数据网格
+>>> 代码实现
+```java
+RLock lock = redisson.getLock("myLock");
+lock.lock(); //加锁
+lock.unlock(); //解锁
+```
+>>> ##### 4.6.2 加锁机制
+>>>> 加锁流程: 
+>>>> <br>![Markdown](https://i.loli.net/2021/04/28/rX4exihgGtLVJDB.png)
+>>>>
+>>>> Redisson的lock()、tryLock()方法 底层 其实是发送一段lua脚本到一台服务器
+```java
+if (redis.call('exists' KEYS[1]) == 0) then  //  exists 判断key是否存在
+       redis.call('hset' KEYS[1] ARGV[2] 1);  // 如果不存在，hset存哈希表
+       redis.call('pexpire' KEYS[1] ARGV[1]);  // 设置过期时间
+       return nil;  +                          // 返回null 就是加锁成功
+          end;  +
+          if (redis.call('hexists' KEYS[1] ARGV[2]) == 1) then  // 如果key存在，查看哈希表中是否存在(当前线程)
+              redis.call('hincrby' KEYS[1] ARGV[2] 1);  // 给哈希中的key加1，代表重入1次，以此类推
+              redis.call('pexpire' KEYS[1] ARGV[1]);  // 重设过期时间
+              return nil;  +
+          end;  +
+          return redis.call('pttl' KEYS[1]); // 如果前面的if都没进去，说明ARGV[2]的值不同，也就是不是同一线程的锁，这时候直接返回该锁的过期时间
+```
+>>>> 参数解释：
+>>>> <br>KEYS[1]：即加锁的key，RLock lock = redisson.getLock("myLock"); 中的myLock
+>>>> <br>ARGV[1]：即 TimeOut 锁key的默认生存时间，默认30秒
+>>>> <br>ARGV[2]：代表的是加锁的客户端的ID，类似于这样的：99ead457-bd16-4ec0-81b6-9b7c73546469:1
+>>>> <br>其中lock()默认是30秒的生存时间
+>>> ##### 4.6.3 锁互斥
+>>>     假如客户端A已经拿到了 myLock，现在 有一客户端（未知） 想进入：
+>>>     a. 第一个if判断会执行“exists myLock”，发现myLock这个锁key已经存在了
+>>>     b. 第二个if判断，判断一下，myLock锁key的hash数据结构中， 如果是客户端A重新请求，证明当前是同一个客户端同一个线程重新进入，所以可从入标志+1，重新刷新生存时间（可重入）； 否则进入下一个if
+>>>     c. 第三个if判断，客户端B 会获取到pttl myLock返回的一个数字，这个数字代表了myLock这个锁key的剩余生存时间。比如还剩15000毫秒的生存时间
+>>>     此时客户端B会进入一个while循环，不停的尝试加锁
+>>> ##### 4.6.4 watch dog 看门狗自动延期机制
 
 
 
