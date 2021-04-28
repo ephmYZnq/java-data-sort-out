@@ -221,9 +221,39 @@ if (redis.call('exists' KEYS[1]) == 0) then  //  exists 判断key是否存在
 >>>     c. 第三个if判断，客户端B 会获取到pttl myLock返回的一个数字，这个数字代表了myLock这个锁key的剩余生存时间。比如还剩15000毫秒的生存时间
 >>>     此时客户端B会进入一个while循环，不停的尝试加锁
 >>> ##### 4.6.4 watch dog 看门狗自动延期机制
-
-
-
+>>>     lockWatchdogTimeout（监控锁的看门狗超时，单位：毫秒）默认值：30000
+>>>     监控锁的看门狗超时时间单位为毫秒。该参数只适用于分布式锁的加锁请求中未明确使用leaseTimeout参数的情况。(如果设置了leaseTimeout那就会自动失效了呀~)
+>>>     看门狗的时间可以自定义设置：config.setLockWatchdogTimeout(30000);
+>>>     作用：
+>>>        假如客户端A在超时时间内还没执行完毕怎么办呢？ 
+>>>        redisson于是提供了这个看门狗，如果还没执行完毕，监听到这个客户端A的线程还持有锁，就去续期，默认是 LockWatchdogTimeout/ 3 即 10 秒监听一次
+>>>        如果还持有，就不断的延长锁的有效期（重新给锁设置过期时间，30s）
+>>>     可以在lock的参数里面指定：
+>>>        lock.lock(); //如果不设置，默认的生存时间是30s，启动看门狗 
+>>>        lock.lock(10, TimeUnit.SECONDS);//10秒以后自动解锁，不启动看门狗，锁到期不续
+>>>     如果是使用了可重入锁（leaseTimeout）：
+>>>        lock.tryLock(); //如果不设置，默认的生存时间是30s，启动看门狗 
+>>>        lock.tryLock(100, 10, TimeUnit.SECONDS);//尝试加锁最多等待100秒，上锁以后10秒自动解锁，不启动看门狗
+>>> ##### 4.6.5 释放锁机制
+>>>     lock.unlock()，就可以释放分布式锁。就是每次都对myLock数据结构中的那个加锁次数减1
+>>>     如果发现加锁次数是0了，说明这个客户端已经不再持有锁了，此时就会用：“del myLock”命令，从redis里删除这个key
+>>>     为了安全，会先校验是否持有锁再释放，防止
+>>>        业务执行还没执行完，锁到期了。（此时没占用锁，再unlock就会报错）
+>>>        主线程异常退出、或者假死
+```java
+finally {
+    if (rLock.isLocked()) {
+        if (rLock.isHeldByCurrentThread()) {
+            rLock.unlock();
+        }
+    }
+}
+```
+>>> ##### 4.6.6 缺点
+>>>     如果是 主从、哨兵模式，当客户端A 把 myLock这个锁 key 的value写入了 master，此时会异步复制给slave实例
+>>>     万一在这个主从复制的过程中 master 宕机了，主备切换，slave 变成了master
+>>>     那么这个时候 slave还没来得及加锁，此时 客户端A的myLock的 值是没有的，客户端B在请求时，myLock却成功为自己加了锁。这时候分布式锁就失效了，就会导致数据有问题
+>>>     所以说Redis分布式说最大的缺点就是宕机导致多个客户端加锁，导致脏数据，不过这种几率还是很小的
 
 
 
