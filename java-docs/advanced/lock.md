@@ -100,12 +100,12 @@ public final int getAndAddInt(Object o, long offset, int delta) {
 >> 这四种锁是指锁的状态，专门针对synchronized的。在介绍这四种锁状态之前还需要介绍一些额外的知识。
 >> <br>首先为什么Synchronized能实现线程同步？
 >> <br>在回答这个问题之前我们需要了解两个重要的概念：“Java对象头”、“Monitor”
-#### 3.1 Java对象头
+>> #### 3.1 Java对象头
 >>> synchronized是悲观锁，在操作同步资源之前需要给同步资源先加锁，这把锁就是存在Java对象头里的，而Java对象头又是什么呢？
 >>> <br>我们以Hotspot虚拟机为例，Hotspot的对象头主要包括两部分数据：Mark Word（标记字段）、Klass Pointer（类型指针）。
-##### 3.1.1 Mark Word
+>>> ##### 3.1.1 Mark Word
 >>>> 默认存储对象的HashCode，分代年龄和锁标志位信息。这些信息都是与对象自身定义无关的数据，所以Mark Word被设计成一个非固定的数据结构以便在极小的空间内存存储尽量多的数据。它会根据对象的状态复用自己的存储空间，也就是说在运行期间Mark Word里存储的数据会随着锁标志位的变化而变化。
-##### 3.1.2 Klass Point
+>>> ##### 3.1.2 Klass Point
 >>>> 对象指向它的类元数据的指针，虚拟机通过这个指针来确定这个对象是哪个类的实例。
-#### 3.2 Monitor
+>> #### 3.2 Monitor
 >>> Monitor可以理解为一个同步工具或一种同步机制，通常被描述为一个对象。每一个Java对象就有一把看不见的锁，称为内部锁或者Monitor锁。
