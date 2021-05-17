@@ -154,28 +154,13 @@ public final int getAndAddInt(Object o, long offset, int delta) {
 > <br>![Markdown](https://i.loli.net/2021/05/17/BVWXSk5c6EFTxwG.png)
 > <br>根据代码可知，ReentrantLock里面有一个内部类Sync，Sync继承AQS（AbstractQueuedSynchronizer），添加锁和释放锁的大部分操作实际上都是在Sync中实现的。它有公平锁FairSync和非公平锁NonfairSync两个子类。ReentrantLock默认使用非公平锁，也可以通过构造器来显示的指定使用公平锁。
 > <br>下面我们来看一下公平锁与非公平锁的加锁方法的源码:
-> <br>
+> <br>![Markdown](https://i.loli.net/2021/05/17/SF94RmwU8jLlaDV.png)
+> <br> 通过上图中的源代码对比，我们可以明显的看出公平锁与非公平锁的lock()方法唯一的区别就在于公平锁在获取同步状态时多了一个限制条件：hasQueuedPredecessors()。
+> <br>![Markdown](https://i.loli.net/2021/05/17/3DYlzKPprZLUsd7.png)
+> <br>再进入hasQueuedPredecessors()，可以看到该方法主要做一件事情：主要是判断当前线程是否位于同步队列中的第一个。如果是则返回true，否则返回false。
+> <br>综上，公平锁就是通过同步队列来实现多个线程按照申请锁的顺序来获取锁，从而实现公平的特性。非公平锁加锁时不考虑排队等待问题，直接尝试获取锁，所以存在后申请却先获得锁的情况。
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+### 5. 可重入锁 VS 非可重入锁
 
 
 
